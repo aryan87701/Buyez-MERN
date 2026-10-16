@@ -1,5 +1,4 @@
-const mongoose  = require("mongoose")
-const { applyTimestamps } = require("./User.model")
+const mongoose = require("mongoose")
 
 const productSchema = new mongoose.Schema({
     pname:{
@@ -37,7 +36,16 @@ const productSchema = new mongoose.Schema({
         type:Number,
         default:0
     }
-
 })
 
-module.exports = mongoose.model("product",productSchema)
+// Register both "Product" and "product" to support Order.items.productId ref:'Product'
+const ProductModel = mongoose.models.Product || mongoose.model("Product", productSchema)
+try {
+    if (!mongoose.models.product) {
+        mongoose.model("product", productSchema)
+    }
+} catch (e) {
+    // ignore
+}
+
+module.exports = ProductModel

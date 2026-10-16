@@ -49,6 +49,7 @@ const registerUser = async(req,res)=>{
                 name:user.name,
                 email:user.email,
                 role:user.role,
+                verified:user.verified,
                 token:generateToken(user._id),
             })  
 
@@ -75,6 +76,7 @@ const loginUser = async(req,res)=>{
                 name:user.name,
                 email:user.email,
                 role:user.role,
+                verified:user.verified,
                 token:generateToken(user._id)
             })
         }else{
