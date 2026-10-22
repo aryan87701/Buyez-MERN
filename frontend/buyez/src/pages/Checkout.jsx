@@ -113,7 +113,7 @@ const Checkout = () => {
           postalcode: address.postalcode,
           country: address.country,
         },
-        paymentId: `PAY_MOCK_${Date.now()}`,
+        paymentId: "COD",
       };
 
       const res = await fetch("/api/orders", {

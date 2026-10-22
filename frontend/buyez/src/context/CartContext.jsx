@@ -1,17 +1,13 @@
-import { createContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { CartContext } from "./CartContextObject.js";
+import {
+  calculateSubtotal,
+  calculateShippingFee,
+  FREE_SHIPPING_THRESHOLD,
+  STANDARD_SHIPPING_FEE,
+} from "../utils/cartUtils.js";
 
-export const CartContext = createContext({
-  cart: [],
-  cartCount: 0,
-  cartTotal: 0,
-  freeShippingThreshold: 999,
-  shippingFee: 0,
-  grandTotal: 0,
-  addToCart: () => {},
-  updateQty: () => {},
-  removeFromCart: () => {},
-  clearCart: () => {},
-});
+export { CartContext };
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState(() => {
@@ -27,13 +23,12 @@ export const CartProvider = ({ children }) => {
     try {
       localStorage.setItem("buyez_cart", JSON.stringify(cart));
     } catch (e) {
-      console.error(e);
+      console.error("Failed to persist cart:", e);
     }
   }, [cart]);
 
   const addToCart = (product, qty = 1) => {
     if (!product || !product._id) return;
-    // Strict stock guard: cannot add items with 0 stock
     if (product.stock !== undefined && Number(product.stock) <= 0) return;
 
     setCart((prev) => {
@@ -86,13 +81,15 @@ export const CartProvider = ({ children }) => {
 
   const cartCount = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
 
-  const cartTotal = cart.reduce(
-    (acc, item) => acc + (item.product?.price || 0) * (item.qty || 0),
-    0
-  );
+  // Use utility functions for standard price and shipping fee calculations
+  const flattenedForCalc = cart.map((item) => ({
+    price: item.product?.price || 0,
+    qty: item.qty || 0,
+  }));
 
-  const freeShippingThreshold = 999;
-  const shippingFee = cartTotal >= freeShippingThreshold || cartTotal === 0 ? 0 : 99;
+  const cartTotal = calculateSubtotal(flattenedForCalc);
+  const freeShippingThreshold = FREE_SHIPPING_THRESHOLD;
+  const shippingFee = calculateShippingFee(cartTotal);
   const grandTotal = cartTotal + shippingFee;
 
   return (
@@ -114,3 +111,5 @@ export const CartProvider = ({ children }) => {
     </CartContext.Provider>
   );
 };
+
+export default CartContext;

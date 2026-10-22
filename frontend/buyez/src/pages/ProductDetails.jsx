@@ -20,7 +20,7 @@ import {
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, token, isAdmin } = useContext(AuthContext);
+  const { token, isAdmin } = useContext(AuthContext);
   const { addToCart } = useContext(CartContext);
 
   const [product, setProduct] = useState(null);

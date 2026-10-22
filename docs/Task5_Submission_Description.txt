@@ -1,0 +1,22 @@
+Buyez E-Commerce Platform — Task 5: Testing, Debugging, and Optimization
+
+For Week 5, I focused on testing, debugging, and optimizing the full-stack Buyez e-commerce application (React 19, Vite, Tailwind CSS, Express, and MongoDB). My primary objective was to transform the existing working application into a production-hardened, thoroughly tested, and defensively programmed system.
+
+Testing Implementation:
+I implemented 42 automated tests using Node.js's native test runner (node:test) without introducing heavy external testing overhead. 
+- Backend API Suite (23 tests): Covers customer registration, email format validation, duplicate account prevention, credential authentication, 6-digit OTP verification, authorization roles (customer vs. admin), product retrieval, authoritative server-side price calculation, conditional atomic stock decrement, compensating inventory rollback on order failure, order-status validation, customer order isolation, and analytics permissions. Tests run against an isolated ephemeral HTTP server with stubbed database models.
+- Frontend Utility Suite (19 tests): 11 tests dedicated to cart operations (subtotal calculation, free shipping threshold of ₹999 vs. ₹99 standard shipping, capping quantities at available stock, and automatic item removal on zero quantity) and 8 tests dedicated to product catalogue logic (unique category extraction, case-insensitive multi-attribute search across title, description, and category, and sorting by price and date).
+
+Debugging & Defect Resolution:
+I identified and resolved 8 genuine defects:
+1. Eliminated client-supplied price trust by enforcing authoritative server-side price calculation from MongoDB.
+2. Implemented conditional atomic stock decrements to eliminate overselling race conditions.
+3. Added compensating inventory rollbacks if order creation encounters failures.
+4. Restricted order status updates strictly to 'pending', 'shipped', and 'delivered'.
+5. Hardened JWT Bearer token parsing and handled deleted users safely.
+6. Enforced 6-digit numeric OTP validation.
+7. Removed a redundant full-catalogue network call on the order history view.
+8. Stabilized admin dashboard effects using useCallback.
+
+Optimization & Verification:
+A synthetic microbenchmark of 100,000 catalogue items recorded a median execution time of ~10.31 ms. The Vite production bundle compiles cleanly in ~430 ms with zero ESLint warnings.

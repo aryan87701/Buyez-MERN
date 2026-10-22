@@ -1,28 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "../components/ProductCard";
-import { Search, ArrowUpDown, X, PackageX } from "lucide-react";
+import { Search, ArrowUpDown, X, PackageX, AlertCircle } from "lucide-react";
+import { extractUniqueCategories, filterAndSortProducts } from "../utils/productUtils";
 
 export const Explore = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const categoryParam = searchParams.get("category") || "All";
-  const searchParam = searchParams.get("search") || "";
-
-  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
-  const [searchKeyword, setSearchKeyword] = useState(searchParam);
+  const selectedCategory = searchParams.get("category") || "All";
+  const searchKeyword = searchParams.get("search") || "";
   const [sortBy, setSortBy] = useState("featured");
-
-  useEffect(() => {
-    setSelectedCategory(searchParams.get("category") || "All");
-    setSearchKeyword(searchParams.get("search") || "");
-  }, [searchParams]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchCatalog = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const res = await fetch("/api/products");
         if (res.ok) {
@@ -30,13 +26,20 @@ export const Explore = () => {
           if (isMounted) {
             setProducts(Array.isArray(data) ? data : []);
           }
+        } else {
+          if (isMounted) {
+            setError(`Failed to load product catalogue (status: ${res.status})`);
+          }
         }
       } catch (err) {
-        console.error(err);
+        if (isMounted) {
+          setError("Network or server connection error loading catalogue.");
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
+
     fetchCatalog();
     return () => {
       isMounted = false;
@@ -44,43 +47,23 @@ export const Explore = () => {
   }, []);
 
   // Dynamically extract categories directly from products existing in MongoDB
-  const dynamicCategories = [
-    "All",
-    ...Array.from(new Set(products.map((p) => p.category).filter(Boolean))),
-  ];
+  const dynamicCategories = useMemo(
+    () => extractUniqueCategories(products),
+    [products]
+  );
 
-  // Filtering strictly from real backend records
-  const query = searchKeyword.trim().toLowerCase();
-
-  const filteredProducts = products
-    .filter((prod) => {
-      const name = (prod.pname || prod.name || "").toLowerCase();
-      const desc = (prod.pdesc || "").toLowerCase();
-      const cat = (prod.category || "").toLowerCase();
-
-      const matchesSearch =
-        !query ||
-        name.includes(query) ||
-        desc.includes(query) ||
-        cat.includes(query);
-
-      const matchesCat =
-        selectedCategory === "All" ||
-        cat === selectedCategory.toLowerCase();
-
-      return matchesSearch && matchesCat;
-    })
-    .sort((a, b) => {
-      if (sortBy === "price-low") return (a.price || 0) - (b.price || 0);
-      if (sortBy === "price-high") return (b.price || 0) - (a.price || 0);
-      if (sortBy === "newest") {
-        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      }
-      return 0;
-    });
+  // Memoized filtering and sorting strictly using pure utility functions
+  const filteredProducts = useMemo(
+    () =>
+      filterAndSortProducts(products, {
+        category: selectedCategory,
+        search: searchKeyword,
+        sortBy,
+      }),
+    [products, selectedCategory, searchKeyword, sortBy]
+  );
 
   const handleSearchChange = (value) => {
-    setSearchKeyword(value);
     const newParams = new URLSearchParams(searchParams);
     if (value.trim()) {
       newParams.set("search", value.trim());
@@ -91,7 +74,6 @@ export const Explore = () => {
   };
 
   const handleCategoryClick = (cat) => {
-    setSelectedCategory(cat);
     const newParams = new URLSearchParams(searchParams);
     if (cat === "All") {
       newParams.delete("category");
@@ -102,8 +84,6 @@ export const Explore = () => {
   };
 
   const handleClearFilters = () => {
-    setSelectedCategory("All");
-    setSearchKeyword("");
     setSortBy("featured");
     setSearchParams({});
   };
@@ -124,6 +104,22 @@ export const Explore = () => {
             Explore products published directly in your store database.
           </p>
         </div>
+
+        {/* Error Alert if catalogue failed to load */}
+        {error && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm flex items-center gap-3">
+            <AlertCircle size={18} className="flex-shrink-0" />
+            <div className="flex-1">
+              <span className="font-semibold">{error}</span>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 font-medium"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Filter Controls Bar */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-neutral-200/80 shadow-xs">

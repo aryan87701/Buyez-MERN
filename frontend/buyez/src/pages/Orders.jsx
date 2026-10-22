@@ -15,7 +15,6 @@ const Orders = () => {
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState([]);
-  const [productMap, setProductMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,9 +25,10 @@ const Orders = () => {
     }
 
     let isMounted = true;
-    const fetchOrdersAndProducts = async () => {
+    const fetchOrders = async () => {
+      setLoading(true);
+      setError("");
       try {
-        // 1. Fetch orders
         const res = await fetch("/api/orders/myOrders", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -46,29 +46,16 @@ const Orders = () => {
           const data = await res.json();
           if (isMounted) setOrders(Array.isArray(data) ? data : []);
         } else {
-          setError("Failed to fetch your orders.");
-        }
-
-        // 2. Fetch products to resolve names if backend populate omitted 'pname'
-        const resProds = await fetch("/api/products");
-        if (resProds.ok) {
-          const prods = await resProds.json();
-          if (Array.isArray(prods) && isMounted) {
-            const map = {};
-            prods.forEach((p) => {
-              map[p._id] = p;
-            });
-            setProductMap(map);
-          }
+          if (isMounted) setError("Failed to fetch your orders from the server.");
         }
       } catch {
-        setError("Network error while loading orders.");
+        if (isMounted) setError("Network error while loading your orders.");
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
-    fetchOrdersAndProducts();
+    fetchOrders();
     return () => {
       isMounted = false;
     };
@@ -84,16 +71,16 @@ const Orders = () => {
           <h2 className="text-2xl font-bold font-serif text-neutral-900">
             Sign In to Track Orders
           </h2>
-          <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-            Please log in with your Buyez account to view your purchase history
-            and tracking updates.
+          <p className="text-xs text-neutral-500">
+            Please log into your account to inspect your purchase history and live
+            shipment tracking updates.
           </p>
           <div className="pt-2">
             <Link
               to="/login?redirect=orders"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#153228] text-white text-xs font-semibold rounded-lg hover:bg-[#0f241d] shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#153228] text-white text-xs font-semibold rounded-lg hover:bg-[#0f241d]"
             >
-              <span>Sign In Now</span>
+              <span>Go to Sign In</span>
               <ArrowRight size={14} />
             </Link>
           </div>
@@ -106,23 +93,24 @@ const Orders = () => {
     switch (status) {
       case "delivered":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-            <CheckCircle size={13} />
-            Delivered
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle size={13} className="text-emerald-600" />
+            <span className="capitalize">Delivered</span>
           </span>
         );
       case "shipped":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-            <Truck size={13} />
-            In Transit / Shipped
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+            <Truck size={13} className="text-sky-600" />
+            <span className="capitalize">Shipped</span>
           </span>
         );
+      case "pending":
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-            <Clock size={13} />
-            Order Placed (Pending)
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <Clock size={13} className="text-amber-600" />
+            <span className="capitalize">Processing</span>
           </span>
         );
     }
@@ -191,17 +179,17 @@ const Orders = () => {
             {orders.map((ord) => (
               <div
                 key={ord._id}
-                className="bg-white rounded-2xl border border-neutral-200/80 shadow-xs overflow-hidden"
+                className="bg-white rounded-2xl border border-neutral-200/80 overflow-hidden shadow-xs"
               >
-                {/* Header */}
-                <div className="bg-neutral-50 px-6 py-4 border-b border-neutral-200/80 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex flex-wrap items-center gap-4 sm:gap-8 text-xs text-neutral-600">
+                {/* Order Top Bar */}
+                <div className="bg-neutral-50/70 p-4 sm:p-5 border-b border-neutral-200/60 flex flex-wrap items-center justify-between gap-4 text-xs">
+                  <div className="flex flex-wrap items-center gap-6 sm:gap-10">
                     <div>
                       <span className="block text-[10px] uppercase font-bold text-neutral-400">
                         Order Placed
                       </span>
                       <span className="font-semibold text-neutral-800">
-                        {new Date(ord.createdAt || Date.now()).toLocaleDateString(
+                        {new Date(ord.createdAt || 0).toLocaleDateString(
                           "en-IN",
                           { day: "numeric", month: "short", year: "numeric" }
                         )}
@@ -222,7 +210,7 @@ const Orders = () => {
                         Ship To
                       </span>
                       <span className="font-semibold text-neutral-800">
-                        {ord.address?.fullName || user.name}
+                        {ord.address?.fullName || user?.name || "Customer"}
                       </span>
                     </div>
                   </div>
@@ -239,13 +227,9 @@ const Orders = () => {
                 <div className="p-6 space-y-4">
                   {ord.items &&
                     ord.items.map((item, idx) => {
-                      const prodId = item.productId?._id || item.productId;
-                      // Resolve product name through populated object or product map fallback
                       const resolvedName =
                         item.productId?.pname ||
                         item.productId?.name ||
-                        productMap[prodId]?.pname ||
-                        productMap[prodId]?.name ||
                         "Product Item";
 
                       return (
@@ -262,7 +246,7 @@ const Orders = () => {
                             </span>
                           </div>
                           <span className="font-bold text-neutral-800">
-                            ₹{(item.price * item.qty).toLocaleString("en-IN")}
+                            ₹{((item.price || 0) * (item.qty || 1)).toLocaleString("en-IN")}
                           </span>
                         </div>
                       );
@@ -280,7 +264,6 @@ const Orders = () => {
             ))}
           </div>
         )}
-
       </div>
     </div>
   );

@@ -1,27 +1,26 @@
-const express = require("express")
-const cors = require("cors")
-const dotenv= require("dotenv")
-const connectDB = require('./config/db.js')
+const dotenv = require("dotenv");
+dotenv.config();
 
-dotenv.config()
+const app = require("./app.js");
+const connectDB = require("./config/db.js");
 
-connectDB()
-const app = express();
-app.use(cors())
-app.use(express.json())
+const PORT = process.env.PORT || 3000;
 
-app.use('/api/auth',require('./routes/authRoutes'))
-app.use('/api/products',require('./routes/productRoutes'))
-app.use('/api/orders',require('./routes/orderRoutes'))
-// app.use('/api/payments',require('./routes/paymentRoutes'))
-app.use('/api/analytics',require('./routes/analyticRoutes'))
+const startServer = async () => {
+  try {
+    await connectDB();
+    const server = app.listen(PORT, () => {
+      console.log(`server running on port ${PORT}`);
+    });
+    return server;
+  } catch (error) {
+    console.error("Database connection failure:", error.message);
+    process.exit(1);
+  }
+};
 
-app.get('/',(req,res)=>{
-    res.send("Backend working")
-})
+if (require.main === module) {
+  startServer();
+}
 
-const PORT = process.env.PORT
-
-app.listen(PORT,()=>{
-    console.log(`server running on port ${PORT}`)
-})
+module.exports = { app, startServer };

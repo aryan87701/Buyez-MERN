@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import {
@@ -49,7 +49,7 @@ const AdminDashboard = () => {
     imageFile: null,
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -91,13 +91,13 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     if (token) {
       fetchData();
     }
-  }, [token]);
+  }, [token, fetchData]);
 
   // Handle Order Status Update
   const handleUpdateStatus = async (orderId, newStatus) => {
@@ -497,7 +497,7 @@ const AdminDashboard = () => {
                           <td className="p-3.5 font-mono text-neutral-500">
                             #{o._id.slice(-6)}
                             <span className="block text-[10px] text-neutral-400 font-sans">
-                              {new Date(o.createdAt || Date.now()).toLocaleDateString(
+                              {new Date(o.createdAt || 0).toLocaleDateString(
                                 "en-IN"
                               )}
                             </span>

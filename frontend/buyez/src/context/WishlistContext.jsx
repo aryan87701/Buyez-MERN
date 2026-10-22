@@ -1,11 +1,7 @@
-import { createContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { WishlistContext } from "./WishlistContextObject.js";
 
-export const WishlistContext = createContext({
-  wishlist: [],
-  wishlistCount: 0,
-  toggleWishlist: () => {},
-  isWishlisted: () => false,
-});
+export { WishlistContext };
 
 export const WishlistProvider = ({ children }) => {
   const [wishlist, setWishlist] = useState(() => {
@@ -54,3 +50,5 @@ export const WishlistProvider = ({ children }) => {
     </WishlistContext.Provider>
   );
 };
+
+export default WishlistContext;

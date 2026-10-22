@@ -1,100 +1,119 @@
 const User = require("../model/User.model.js")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
-const sendEmail = require("../util/sendMail.js")                                     
-//we generate token to store in local browser of user ..so that they dont have to sign up again and again
-const generateToken = (id) =>{
-    return jwt.sign({id},process.env.JWT_SECRET,{expiresIn:'7d'})
+const sendEmail = require("../util/sendMail.js")
+
+const generateToken = (id) => {
+    return jwt.sign({ id }, process.env.JWT_SECRET || "default_jwt_secret", { expiresIn: '7d' })
 }
 
+// Register function
+const registerUser = async (req, res) => {
+    const { name, email, password } = req.body
 
-//Register function
+    if (!name || !email || !password) {
+        return res.status(400).json({
+            message: "Please provide all required fields (name, email, password)"
+        })
+    }
 
-const registerUser = async(req,res)=>{
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+        return res.status(400).json({
+            message: "Please provide a valid email address"
+        })
+    }
 
-    //taking data from website
-    const{name,email,password}=req.body
+    const normalizedEmail = email.trim().toLowerCase();
 
     try {
-
-        //checking for existing user
-        const existingUser = await User.findOne({email})
-        if(existingUser){
+        const existingUser = await User.findOne({ email: normalizedEmail })
+        if (existingUser) {
             return res.status(400).json({
-                message:"User already exists"
+                message: "User already exists"
             })
         }
 
-        //bcrypt password hashing
         const salt = await bcrypt.genSalt(10)
-        const hashedPassword = await bcrypt.hash(password,salt)
-
-        //otp is stored in user model so that every user has unique otp
+        const hashedPassword = await bcrypt.hash(password, salt)
         const OTP = Math.floor(100000 + Math.random() * 900000).toString()
 
+        const user = await User.create({
+            name: name.trim(),
+            email: normalizedEmail,
+            password: hashedPassword,
+            otp: OTP
+        })
 
-        //DB user creation
-        const user =  await User.create({name,email,password:hashedPassword,otp:OTP})
+        const message = `Hello ${name}, Welcome to buyez - Your OTP for registration is : ${OTP}`
+        try {
+            await sendEmail(normalizedEmail, "Buyez registration successfull", message)
+        } catch (mailErr) {
+            console.error("Email notification error:", mailErr.message);
+        }
 
+        return res.status(201).json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            verified: user.verified,
+            token: generateToken(user._id),
+        })
 
-         //agar user ban gya hai toh apn
-         //OTP generate krenge 
-         //mail mein bhjenge
-            const message = `Hello ${name}, Welcome to buyez - Your OTP for registration is : ${OTP}`
-
-            await sendEmail(email,"Buyez registration successfull",message)
-
-            return res.status(201).json({
-                _id:user._id,
-                name:user.name,
-                email:user.email,
-                role:user.role,
-                verified:user.verified,
-                token:generateToken(user._id),
-            })  
-
-     
     } catch (error) {
         res.status(500).json({
-            message:error.message
+            message: error.message
         })
     }
 }
 
+// User login
+const loginUser = async (req, res) => {
+    const { email, password } = req.body
 
+    if (!email || !password) {
+        return res.status(400).json({
+            message: "Please provide email and password"
+        })
+    }
 
-//user login
+    const normalizedEmail = email.trim().toLowerCase();
 
-const loginUser = async(req,res)=>{
-    const {email,password} = req.body
     try {
-        const user = await User.findOne({email})
+        const user = await User.findOne({ email: normalizedEmail })
 
-        if(user && (await bcrypt.compare(password,user.password))){
-           return res.json({
-                _id:user._id,
-                name:user.name,
-                email:user.email,
-                role:user.role,
-                verified:user.verified,
-                token:generateToken(user._id)
+        if (user && (await bcrypt.compare(password, user.password))) {
+            return res.json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                verified: user.verified,
+                token: generateToken(user._id)
             })
-        }else{
-            res.status(400).json({
-                message:"Invalid email or password"
+        } else {
+            return res.status(400).json({
+                message: "Invalid email or password"
             })
         }
     } catch (error) {
         return res.status(500).json({
-            message:'server error',
-            error : error
+            message: 'Server error',
+            error: error.message || error
         })
     }
 }
 
-//verify-otp
+// Verify-otp
 const verifyOtp = async (req, res) => {
     const { otp } = req.body;
+
+    if (!otp || typeof otp !== "string" || !/^\d{6}$/.test(otp.trim())) {
+        return res.status(400).json({
+            message: "OTP must be a 6-digit numeric string"
+        });
+    }
 
     try {
         const user = await User.findById(req.user.id).select("-password");
@@ -111,16 +130,14 @@ const verifyOtp = async (req, res) => {
             });
         }
 
-        if (otp != user.otp) {
+        if (otp.trim() !== String(user.otp).trim()) {
             return res.status(400).json({
                 message: "Wrong OTP, retry!"
             });
         }
 
-    
-
         user.verified = true;
-        user.otp = undefined; // or null to clear otp after verification
+        user.otp = undefined;
 
         await user.save();
 
@@ -130,14 +147,13 @@ const verifyOtp = async (req, res) => {
 
     } catch (error) {
         console.error(error);
-
         return res.status(500).json({
             message: "Server error"
         });
     }
 };
 
-//resend-otp
+// Resend-otp
 const resendOtp = async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select("-password");
@@ -155,19 +171,15 @@ const resendOtp = async (req, res) => {
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
         user.otp = otp;
-        // user.otpExpires = new Date(Date.now() + 5 * 60 * 1000); // Optional
-
         await user.save();
 
         const message = `The new OTP for verification is ${otp}`;
-
-        await sendEmail(
-            user.email,
-            "New OTP for Verification",
-            message
-        );
+        try {
+            await sendEmail(user.email, "New OTP for Verification", message);
+        } catch (mailErr) {
+            console.error("Email notification error:", mailErr.message);
+        }
 
         return res.status(200).json({
             message: "OTP sent successfully"
@@ -175,23 +187,20 @@ const resendOtp = async (req, res) => {
 
     } catch (error) {
         console.error(error);
-
         return res.status(500).json({
             message: "Server error"
         });
     }
 };
 
-
-//get user details
-
-const getUser = async(req,res)=>{
+// Get user details (Admin)
+const getUser = async (req, res) => {
     try {
         const users = await User.find({}).select('-password')
         res.json(users)
     } catch (error) {
         res.status(500).json({
-            message:"Server error"
+            message: "Server error"
         })
     }
 }

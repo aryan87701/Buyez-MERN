@@ -231,6 +231,18 @@ const Home = () => {
             </Link>
           </div>
 
+          {error && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs sm:text-sm font-medium flex items-center justify-between">
+              <span>Could not load featured products from server. Please check connection.</span>
+              <button
+                onClick={() => window.location.reload()}
+                className="underline hover:text-rose-900 cursor-pointer font-semibold"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (

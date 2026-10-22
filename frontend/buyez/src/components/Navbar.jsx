@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useContext, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { CartContext } from "../context/CartContext";
@@ -27,7 +27,6 @@ const Navbar = () => {
 
   // Live Search Dropdown States
   const [catalog, setCatalog] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
 
   const dropdownRef = useRef(null);
@@ -52,25 +51,26 @@ const Navbar = () => {
     };
   }, []);
 
-  // Filter products live as the user types
-  useEffect(() => {
+  // Filter products live using useMemo
+  const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      setSearchResults([]);
-      setShowSearchDropdown(false);
-      return;
-    }
-
-    const matches = catalog.filter((p) => {
+    if (!q) return [];
+    return catalog.filter((p) => {
       const name = (p.pname || p.name || "").toLowerCase();
       const desc = (p.pdesc || "").toLowerCase();
       const cat = (p.category || "").toLowerCase();
       return name.includes(q) || desc.includes(q) || cat.includes(q);
     });
-
-    setSearchResults(matches);
-    setShowSearchDropdown(true);
   }, [searchQuery, catalog]);
+
+  // Track search query to open dropdown when typed
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setShowSearchDropdown(true);
+    } else {
+      setShowSearchDropdown(false);
+    }
+  }, [searchQuery]);
 
   // Close search dropdown and mobile menu on route change
   useEffect(() => {
